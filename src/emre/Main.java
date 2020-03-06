@@ -11,6 +11,7 @@ import java.awt.Dimension;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.ServerSocket;
@@ -21,8 +22,13 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javafx.embed.swing.JFXPanel;
+import javax.swing.JFrame;
+
 import javax.swing.JPanel;
 import javax.swing.UIManager;
+import marte.swing.google.maps.GoogleMapsScene;
+import marte.swing.google.maps.events.MapsEvent;
 import mdlaf.MaterialLookAndFeel;
 import mdlaf.animation.MaterialUIMovement;
 import mdlaf.utils.MaterialColors;
@@ -42,15 +48,15 @@ public class Main extends javax.swing.JFrame {
     private ArrayList<Double> accList = new ArrayList<>();
     private ArrayList<Double> pressureList = new ArrayList<>();
     private ArrayList<Double> altitudeList = new ArrayList<>();
-    
-    private GLTD u;
-    
+
+    private RocketSimulation u;
+
     private ServerSocket server;
 
     public Main() {
         initComponents();
 
-        setTitle("Megatech - Yer İstasyonu");
+        setTitle("Yer İstasyonu");
 
         MaterialUIMovement.add(jButton1, MaterialColors.BLUE_200);
         MaterialUIMovement.add(jButton2, MaterialColors.BLUE_200);
@@ -64,6 +70,7 @@ public class Main extends javax.swing.JFrame {
 
             }
         });
+
     }
 
     private int iq = 1;
@@ -71,6 +78,8 @@ public class Main extends javax.swing.JFrame {
     //private Universe u;
     private XYChart temperatureGraph, accelerationGraph, pressureGraph, velocityGraph, altitudeGraph;
 
+    private final String[] args = new String[] {""};
+    
     private void prepareGraphs() {
 
         accelerationGraph = new XYChartBuilder().width(800).height(800).theme(ChartTheme.GGPlot2).build();
@@ -87,27 +96,57 @@ public class Main extends javax.swing.JFrame {
         altitudePanel.setPreferredSize(new Dimension(300, 300));
         altitudePanel.setLayout(new java.awt.BorderLayout());
 
+        mapPanel.setPreferredSize(new Dimension(300, 300));
+        mapPanel.setLayout(new java.awt.BorderLayout());
+
         tdpanel.setPreferredSize(new Dimension(250, 250));
         tdpanel.setLayout(new java.awt.BorderLayout());
+        
+        payloadStatus.setPreferredSize(new Dimension(250, 250));
+        payloadStatus.setLayout(new java.awt.BorderLayout());
 
         javax.swing.SwingUtilities.invokeLater(new Runnable() {
 
             @Override
             public void run() {
-                JPanel chartPanel = new XChartPanel<XYChart>(accelerationGraph);
-                accPanel.add(chartPanel, BorderLayout.CENTER);
+                try {
+                    final JPanel chartPanel = new XChartPanel<XYChart>(accelerationGraph);
+                    accPanel.add(chartPanel, BorderLayout.CENTER);
 
-                JPanel chartPanel2 = new XChartPanel<XYChart>(pressureGraph);
-                pressurePanel.add(chartPanel2, BorderLayout.CENTER);
+                    final JPanel chartPanel2 = new XChartPanel<XYChart>(pressureGraph);
+                    pressurePanel.add(chartPanel2, BorderLayout.CENTER);
 
-                JPanel chartPanel3 = new XChartPanel<XYChart>(altitudeGraph);
-                altitudePanel.add(chartPanel3, BorderLayout.CENTER);
+                    final JPanel chartPanel3 = new XChartPanel<XYChart>(altitudeGraph);
+                    altitudePanel.add(chartPanel3, BorderLayout.CENTER);
 
-                u = new GLTD();
+                    u = new RocketSimulation();
 
-                tdpanel.add(u);
+                    final GoogleMapsScene api = GoogleMapsScene.launch(new File("map.html"), args);
+                    
+                    api.setCenter(36.7073, 35.0431);
+                    api.addLoadListener(new MapsEvent<Boolean>() {
+                        @Override
+                        public void handle(Boolean event) {
+                            System.out.println("loading status" + event.toString());
+                        }
+                    });
 
-                //tdpanel.repaint();
+                    final JFXPanel fxPanel = new JFXPanel();
+
+                    api.attach(fxPanel);
+
+                    mapPanel.add(fxPanel);
+
+                    final PayloadSimulation payload = new PayloadSimulation();
+                                        
+                    payloadStatus.add(payload);
+
+                    tdpanel.add(u);
+                    
+                    //tdpanel.repaint();
+                } catch (Exception ex) {
+                    Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
+                }
             }
         });
 
@@ -136,14 +175,13 @@ public class Main extends javax.swing.JFrame {
     }
 
     private String line;
-    private String logs  = "";
+    private String logs = "";
 
     /*
     Message notations
     a-ivme
     3d-3d özellikler
-    */
-    
+     */
     private void initSocketServer() {
         try {
             server = new ServerSocket(9500);
@@ -164,19 +202,19 @@ public class Main extends javax.swing.JFrame {
                             while (line != null) {
                                 if (!line.isEmpty()) {
                                     System.out.println(line);
-                                    
+
                                     if (line != null) {
                                         logs += "\n" + line;
-                                    }else {
+                                    } else {
                                         logs += "\n" + "no message";
                                     }
-                                    
-                                    Random random = new Random();
-                                    
-                                    int[] data = {random.nextInt(15),random.nextInt(50)};
-                                    
+
+                                    final Random random = new Random();
+                                    // rotateX = -25; rotateY = -90;
+                                    int[] data = {-1 * (25), -1 * (90 + random.nextInt(2))};
+
                                     u.onNewDataReceived(data);
-                                    
+
                                     logPanel.setText("Connected\n" + logs);
 
                                     line = reader.readLine();
@@ -269,6 +307,8 @@ public class Main extends javax.swing.JFrame {
         pressurePanel = new java.awt.Panel();
         altitudePanel = new java.awt.Panel();
         tdpanel = new java.awt.Panel();
+        mapPanel = new javax.swing.JPanel();
+        payloadStatus = new java.awt.Panel();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         setBackground(new java.awt.Color(51, 51, 51));
@@ -334,10 +374,32 @@ public class Main extends javax.swing.JFrame {
         tdpanel.setLayout(tdpanelLayout);
         tdpanelLayout.setHorizontalGroup(
             tdpanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGap(0, 221, Short.MAX_VALUE)
+            .addGap(0, 241, Short.MAX_VALUE)
         );
         tdpanelLayout.setVerticalGroup(
             tdpanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 223, Short.MAX_VALUE)
+        );
+
+        javax.swing.GroupLayout mapPanelLayout = new javax.swing.GroupLayout(mapPanel);
+        mapPanel.setLayout(mapPanelLayout);
+        mapPanelLayout.setHorizontalGroup(
+            mapPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 196, Short.MAX_VALUE)
+        );
+        mapPanelLayout.setVerticalGroup(
+            mapPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 182, Short.MAX_VALUE)
+        );
+
+        javax.swing.GroupLayout payloadStatusLayout = new javax.swing.GroupLayout(payloadStatus);
+        payloadStatus.setLayout(payloadStatusLayout);
+        payloadStatusLayout.setHorizontalGroup(
+            payloadStatusLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGap(0, 221, Short.MAX_VALUE)
+        );
+        payloadStatusLayout.setVerticalGroup(
+            payloadStatusLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGap(0, 203, Short.MAX_VALUE)
         );
 
@@ -346,29 +408,33 @@ public class Main extends javax.swing.JFrame {
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
-                .addContainerGap()
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(logPanel, javax.swing.GroupLayout.PREFERRED_SIZE, 200, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(jLabel2))
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
-                        .addComponent(jLabel1)
-                        .addGap(86, 86, 86)
-                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                            .addGroup(layout.createSequentialGroup()
-                                .addComponent(jButton2)
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                                .addComponent(jButton1))
-                            .addComponent(jLabel4, javax.swing.GroupLayout.Alignment.TRAILING)))
-                    .addComponent(tdpanel, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                    .addGroup(layout.createSequentialGroup()
+                        .addContainerGap()
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(logPanel, javax.swing.GroupLayout.PREFERRED_SIZE, 200, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(jLabel2))
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 886, Short.MAX_VALUE)
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                            .addComponent(payloadStatus, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(jLabel1))
+                        .addGap(33, 33, 33)
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                                .addGroup(layout.createSequentialGroup()
+                                    .addComponent(jButton2)
+                                    .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                    .addComponent(jButton1))
+                                .addComponent(jLabel4, javax.swing.GroupLayout.Alignment.TRAILING))
+                            .addComponent(tdpanel, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                    .addGroup(layout.createSequentialGroup()
+                        .addGap(330, 330, 330)
+                        .addComponent(accPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(53, 53, 53)
+                        .addComponent(altitudePanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(mapPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)))
                 .addContainerGap())
-            .addGroup(layout.createSequentialGroup()
-                .addGap(427, 427, 427)
-                .addComponent(accPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(altitudePanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(0, 601, Short.MAX_VALUE))
             .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                 .addGroup(layout.createSequentialGroup()
                     .addGap(20, 20, 20)
@@ -378,9 +444,9 @@ public class Main extends javax.swing.JFrame {
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                .addContainerGap()
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
                     .addGroup(layout.createSequentialGroup()
-                        .addContainerGap()
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addComponent(accPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                             .addComponent(altitudePanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
@@ -390,8 +456,11 @@ public class Main extends javax.swing.JFrame {
                         .addComponent(logPanel, javax.swing.GroupLayout.PREFERRED_SIZE, 101, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addGap(8, 8, 8))
                     .addGroup(layout.createSequentialGroup()
-                        .addGap(0, 0, Short.MAX_VALUE)
-                        .addComponent(tdpanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addComponent(mapPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(tdpanel, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(payloadStatus, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                         .addGap(30, 30, 30)
                         .addComponent(jLabel4)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
@@ -445,6 +514,8 @@ public class Main extends javax.swing.JFrame {
     private javax.swing.JLabel jLabel2;
     private javax.swing.JLabel jLabel4;
     private javax.swing.JLabel logPanel;
+    private javax.swing.JPanel mapPanel;
+    private java.awt.Panel payloadStatus;
     private java.awt.Panel pressurePanel;
     private java.awt.Panel tdpanel;
     // End of variables declaration//GEN-END:variables
