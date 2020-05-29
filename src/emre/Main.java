@@ -23,7 +23,6 @@ import java.util.TimerTask;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javafx.embed.swing.JFXPanel;
-import javax.swing.JFrame;
 
 import javax.swing.JPanel;
 import javax.swing.UIManager;
@@ -56,6 +55,8 @@ public class Main extends javax.swing.JFrame {
     public Main() {
         initComponents();
 
+        System.setProperty("jogl.disable.openglcore", "false");
+        
         setTitle("Yer İstasyonu");
 
         MaterialUIMovement.add(jButton1, MaterialColors.BLUE_200);
